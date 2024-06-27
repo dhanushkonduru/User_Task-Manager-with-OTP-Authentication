@@ -6,32 +6,24 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from .models import Task, User
 from .serializers import UserSerializer, TaskSerializer, RegisterSerializer, LoginSerializer
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from datetime import datetime, timedelta
 from django.utils import timezone
 from .utils import generate_otp, send_otp_via_sms, generate_access_token
-from django.http import JsonResponse
-from django.conf import settings
-from twilio.rest import Client
 from rest_framework.views import APIView
-
 
 class UserList(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-
 class TaskList(generics.ListCreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
-
 class TaskDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -44,7 +36,6 @@ def logout(request):
     except Exception as e:
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['POST'])
 def login(request):
     try:
@@ -54,7 +45,7 @@ def login(request):
 
         user = User.objects.get(phone_number=phone_number, country_code=country_code)
 
-        if user.otp != otp or timezone.now() > user.otp_created_at + timedelta(minutes=10):
+        if user.otp != otp or timezone.now() > user.otp_created_at + timezone.timedelta(minutes=10):
             raise ValidationError("Invalid or expired OTP")
 
         refresh = RefreshToken.for_user(user)
@@ -69,12 +60,10 @@ def login(request):
     except Exception as e:
         return Response({'error': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
-
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -124,7 +113,6 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response(user_serializer.data)
 
-
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -152,19 +140,9 @@ class RegisterView(generics.CreateAPIView):
         except Exception as e:
             return Response({'error': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_otp_via_twilio(self, phone_number, otp):
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            body=f"Your OTP is {otp}",
-            from_=settings.TWILIO_PHONE_NUMBER,
-            to=phone_number
-        )
-
-
 @login_required  # Apply login_required decorator to your view function
 def profile(request):
     return render(request, 'profile.html')
-
 
 @api_view(['POST'])
 def register_user(request):
@@ -199,7 +177,6 @@ def register_user(request):
     except Exception as e:
         return Response({'error': f'Something went wrong: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 def generate_otp_and_send_sms(request):
     try:
         phone_number = request.data["phone_number"]
@@ -220,7 +197,6 @@ def generate_otp_and_send_sms(request):
         return JsonResponse({'error': 'User does not exist.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
